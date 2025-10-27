@@ -1,0 +1,7 @@
+flask
+qdrant-client
+sentence-transformers
+datasets
+pillow
+tqdm
+transformers
