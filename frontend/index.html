@@ -3,187 +3,958 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Semantic Image Search</title>
+  <title>Multi-Stage Semantic Search</title>
   <style>
-    body { font-family: sans-serif; background: #f5f5f5; margin: 0; }
-    header { text-align: center; padding: 20px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    #search { padding: 10px; width: 60%; font-size: 16px; border-radius: 8px; border: 1px solid #ccc; }
-    #gallery { column-count: 4; column-gap: 1rem; padding: 1rem; min-height: 200px; }
-    .image-container { position: relative; margin-bottom: 1rem; break-inside: avoid; }
-    .image-container img { 
-      width: 100%; 
-      border-radius: 8px; 
-      opacity: 0; 
-      transition: opacity 0.3s;
-      min-height: 100px;
+    * { box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .main-container {
+      display: flex;
+      height: 100vh;
+    }
+    
+    .sidebar {
+      width: 400px;
+      background: white;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+      overflow-y: auto;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 2px solid #e0e0e0;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 10;
+    }
+    
+    .sidebar-header h2 {
+      margin: 0 0 5px 0;
+      font-size: 20px;
+      color: #333;
+    }
+    
+    .sidebar-header p {
+      margin: 0 0 15px 0;
+      font-size: 13px;
+      color: #666;
+    }
+    
+    .sidebar-content {
+      padding: 20px;
+      flex: 1;
+    }
+    
+    .content-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .top-bar {
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 15px 20px;
+      z-index: 90;
+    }
+    
+    .search-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    
+    .btn-primary {
+      background: #1976d2;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #1565c0;
+      transform: translateY(-1px);
+    }
+    
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333;
+    }
+    
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+    
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+    
+    /* Stage Cards */
+    .stage-card {
+      background: #fafafa;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 15px;
+      transition: all 0.2s;
+    }
+    
+    .stage-card.disabled {
+      opacity: 0.5;
       background: #f5f5f5;
     }
-    .image-container img.loaded { opacity: 1; }
-    .similarity-score { 
-      position: absolute; top: 10px; right: 10px; 
-      background: rgba(0,0,0,0.7); color: white;
-      padding: 4px 8px; border-radius: 4px;
-      font-size: 12px;
+    
+    .stage-card.dragging {
+      opacity: 0.5;
+      transform: scale(0.95);
     }
-    .image-filename {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 8px;
-      background: rgba(0,0,0,0.7);
+    
+    .stage-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      cursor: move;
+    }
+    
+    .stage-number {
+      width: 32px;
+      height: 32px;
+      background: #1976d2;
       color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    
+    .stage-card.disabled .stage-number {
+      background: #999;
+    }
+    
+    .stage-title {
+      flex: 1;
+      font-weight: 600;
+      font-size: 15px;
+      color: #333;
+    }
+    
+    .stage-toggle {
+      width: 48px;
+      height: 24px;
+      background: #ccc;
+      border-radius: 12px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .stage-toggle.active {
+      background: #1976d2;
+    }
+    
+    .stage-toggle-knob {
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: left 0.2s;
+    }
+    
+    .stage-toggle.active .stage-toggle-knob {
+      left: 26px;
+    }
+    
+    .stage-content {
+      display: none;
+    }
+    
+    .stage-card:not(.disabled) .stage-content {
+      display: block;
+    }
+    
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 13px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 60px;
+      margin-top: 8px;
+    }
+    
+    .image-slots {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    
+    .image-slot {
+      position: relative;
+      width: 70px;
+      height: 70px;
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: white;
+      font-size: 24px;
+      color: #999;
+    }
+    
+    .image-slot:hover {
+      border-color: #1976d2;
+      background: #f5f9ff;
+    }
+    
+    .image-slot.filled {
+      border-style: solid;
+      border-color: #1976d2;
+      padding: 0;
+    }
+    
+    .image-slot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+    
+    .image-slot .remove-btn {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: #d32f2f;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
       font-size: 12px;
-      border-bottom-left-radius: 8px;
-      border-bottom-right-radius: 8px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      margin: 8px 0 4px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    
+    .checkbox-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    
+    #gallery { 
+      column-count: 5;
+      column-gap: 16px;
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    
+    .image-container { 
+      position: relative;
+      margin-bottom: 16px;
+      break-inside: avoid;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    
+    .image-container:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    }
+    
+    .image-container img { 
+      width: 100%;
+      display: block;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    
+    .image-container img.loaded { 
+      opacity: 1;
+    }
+    
+    .similarity-score { 
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(0,0,0,0.75);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .image-filename {
+      padding: 10px;
+      background: white;
+      font-size: 12px;
+      color: #666;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    @media(max-width:800px){ #gallery{column-count:2;} }
-    @media(max-width:500px){ #gallery{column-count:1;} }
-    .loading { text-align: center; padding: 20px; }
+    
+    .selection-banner {
+      display: none;
+      background: #1976d2;
+      color: white;
+      padding: 12px 20px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .selection-banner.active {
+      display: flex;
+    }
+    
+    .loading { 
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #1976d2;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
     .error { 
-      text-align: center; 
-      padding: 20px; 
-      color: #721c24; 
-      background-color: #f8d7da; 
-      border: 1px solid #f5c6cb; 
-      border-radius: 4px; 
-      margin: 1rem;
+      text-align: center;
+      padding: 20px;
+      color: #d32f2f;
+      background-color: #ffebee;
+      border: 1px solid #ffcdd2;
+      border-radius: 8px;
+      margin: 20px;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+    
+    .info-text {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    
+    .drag-handle {
+      cursor: move;
+      color: #999;
+      font-size: 20px;
+      margin-right: -5px;
+    }
+    
+    @media(max-width: 1400px) { #gallery { column-count: 4; } }
+    @media(max-width: 1100px) { #gallery { column-count: 3; } }
+    @media(max-width: 800px) { #gallery { column-count: 2; } }
+    @media(max-width: 500px) { #gallery { column-count: 1; } }
+    
+    input[type="file"] {
+      display: none;
     }
   </style>
 </head>
 <body>
 
-  <header>
-    <h2>🧠 Semantic Image Search</h2>
-    <input id="search" type="text" placeholder="Type something like 'two people indoors'">
-  </header>
-
-  <div id="gallery"></div>
+  <div class="main-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2>🎯 Multi-Stage Search</h2>
+        <p>Configure and reorder search stages</p>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" onclick="showStats()" style="flex: 1; font-size: 13px;">
+            📊 Stats
+          </button>
+          <button class="btn btn-secondary" onclick="showFaceImages()" style="flex: 1; font-size: 13px;">
+            👤 Faces
+          </button>
+        </div>
+      </div>
+      
+      <div class="sidebar-content" id="stagesContainer">
+        <!-- Stages will be rendered here -->
+      </div>
+    </div>
+    
+    <!-- Main content -->
+    <div class="content-area">
+      <div class="top-bar">
+        <div class="search-row">
+          <button class="btn btn-primary" onclick="performSearch()">🔍 Search</button>
+          <button class="btn btn-secondary" onclick="loadAll()">Show All</button>
+          <button class="btn btn-secondary" onclick="resetStages()">Reset Stages</button>
+        </div>
+      </div>
+      
+      <div class="selection-banner" id="selectionBanner">
+        <div id="selectionText">Click an image to select it</div>
+        <button onclick="cancelSelection()" style="background: white; color: #1976d2; border: none; padding: 6px 16px; border-radius: 16px; font-weight: 600; cursor: pointer;">Cancel</button>
+      </div>
+      
+      <div id="gallery"></div>
+    </div>
+  </div>
 
   <script>
     const API = "http://localhost:8000";
     const gallery = document.getElementById("gallery");
-    const input = document.getElementById("search");
-
+    
     let isLoading = false;
+    let allLoadedImages = [];
+    let currentSelectionMode = null;
+    let draggedStageIndex = null;
+    
+    // Default stages configuration
+    function createDefaultStages() {
+      return [
+        {
+          id: 1,
+          type: "instructive",
+        title: "Stage 1: Instructive Search",
+        enabled: false,
+        textPrompt: "",
+        referenceImage: null
+      },
+      {
+        id: 2,
+        type: "examples",
+        title: "Stage 2: Positive/Negative Examples",
+        enabled: false,
+        likeImages: [],
+        notLikeImages: []
+      },
+        {
+          id: 3,
+          type: "faces",
+          title: "Stage 3: Face Filtering",
+          enabled: false,
+          includeFaces: [],
+          excludeFaces: [],
+          requireAllFaces: false
+        }
+      ];
+    }
+    
+    let stages = createDefaultStages();
+    
+    // Template builders keep renderStages focused on layout
+    const STAGE_CONTENT_BUILDERS = {
+      instructive: (stage, index) => `
+        <div class="label">Text Prompt</div>
+        <textarea 
+          placeholder="E.g., 'outdoor scenes with similar lighting'"
+          onchange="updateStageText(${index}, this.value)"
+        >${stage.textPrompt || ''}</textarea>
+        <div class="info-text">Describe what you're looking for in natural language</div>
+        
+        <div class="label" style="margin-top: 12px;">Reference Image (Optional)</div>
+        <div class="image-slots">
+          ${stage.referenceImage ? `
+            <div class="image-slot filled">
+              <img src="${stage.referenceImage}" alt="Reference">
+              <button class="remove-btn" onclick="removeReferenceImage(${index}); event.stopPropagation();">&times;</button>
+            </div>
+          ` : `
+            <div class="image-slot" onclick="startImageSelection('instructive', ${index})">+</div>
+          `}
+        </div>
+        <div class="info-text">Add a reference image to combine with your text prompt</div>
+      `,
+      examples: (stage, index) => `
+        <div class="label">Like These (Positive Examples)</div>
+        <div class="image-slots" id="likeSlots${index}">
+          ${stage.likeImages.map((img, i) => `
+            <div class="image-slot filled">
+              <img src="${img}" alt="Like">
+              <button class="remove-btn" onclick="removeLikeImage(${index}, ${i}); event.stopPropagation();">&times;</button>
+            </div>
+          `).join('')}
+          <div class="image-slot" onclick="startImageSelection('like', ${index})">+</div>
+        </div>
+        
+        <div class="label" style="margin-top: 12px;">Not Like These (Negative Examples)</div>
+        <div class="image-slots" id="notLikeSlots${index}">
+          ${stage.notLikeImages.map((img, i) => `
+            <div class="image-slot filled">
+              <img src="${img}" alt="Not Like">
+              <button class="remove-btn" onclick="removeNotLikeImage(${index}, ${i}); event.stopPropagation();">&times;</button>
+            </div>
+          `).join('')}
+          <div class="image-slot" onclick="startImageSelection('notLike', ${index})">+</div>
+        </div>
+      `,
+      faces: (stage, index) => `
+        <div class="label">Include These Faces</div>
+        <div class="image-slots" id="includeFaceSlots${index}">
+          ${stage.includeFaces.map((img, i) => `
+            <div class="image-slot filled">
+              <img src="${img}" alt="Include Face">
+              <button class="remove-btn" onclick="removeIncludeFace(${index}, ${i}); event.stopPropagation();">&times;</button>
+            </div>
+          `).join('')}
+          <div class="image-slot" onclick="startImageSelection('includeFace', ${index})">+</div>
+        </div>
+        <div class="info-text">Only show images containing these faces</div>
+        
+        <div class="label" style="margin-top: 12px;">Exclude These Faces</div>
+        <div class="image-slots" id="excludeFaceSlots${index}">
+          ${stage.excludeFaces.map((img, i) => `
+            <div class="image-slot filled">
+              <img src="${img}" alt="Exclude Face">
+              <button class="remove-btn" onclick="removeExcludeFace(${index}, ${i}); event.stopPropagation();">&times;</button>
+            </div>
+          `).join('')}
+          <div class="image-slot" onclick="startImageSelection('excludeFace', ${index})">+</div>
+        </div>
+        <div class="info-text">Hide images containing these faces</div>
+        
+        <label class="checkbox-label">
+          <input type="checkbox" ${stage.requireAllFaces ? 'checked' : ''} 
+            onchange="toggleRequireAllFaces(${index})">
+          <span>Require ALL faces to be present</span>
+        </label>
+      `
+    };
+    
+    function renderStages() {
+      const container = document.getElementById("stagesContainer");
+      container.innerHTML = "";
+      
+      stages.forEach((stage, index) => {
+        container.appendChild(createStageCard(stage, index));
+      });
+    }
+    
+    function createStageCard(stage, index) {
+      const card = document.createElement("div");
+      card.className = `stage-card ${!stage.enabled ? 'disabled' : ''}`;
+      card.draggable = true;
+      card.dataset.index = index;
+      
+      attachDragHandlers(card, index);
+      
+      card.innerHTML = `
+        <div class="stage-header">
+          <span class="drag-handle">::</span>
+          <div class="stage-number">${index + 1}</div>
+          <div class="stage-title">${stage.title}</div>
+          <div class="stage-toggle ${stage.enabled ? 'active' : ''}" 
+            onclick="toggleStage(${index})">
+            <div class="stage-toggle-knob"></div>
+          </div>
+        </div>
+        <div class="stage-content">
+          ${getStageContent(stage, index)}
+        </div>
+      `;
+      
+      return card;
+    }
+    
+    function attachDragHandlers(card, index) {
+      card.ondragstart = () => {
+        draggedStageIndex = index;
+        card.classList.add('dragging');
+      };
+      
+      card.ondragend = () => {
+        card.classList.remove('dragging');
+      };
+      
+      card.ondragover = (event) => {
+        event.preventDefault();
+      };
+      
+      card.ondrop = (event) => {
+        event.preventDefault();
+        const dropIndex = parseInt(card.dataset.index, 10);
+        if (draggedStageIndex === null || draggedStageIndex === dropIndex) {
+          return;
+        }
+        
+        const [draggedStage] = stages.splice(draggedStageIndex, 1);
+        stages.splice(dropIndex, 0, draggedStage);
+        renderStages();
+      };
+    }
+    
+    function getStageContent(stage, index) {
+      const builder = STAGE_CONTENT_BUILDERS[stage.type];
+      return builder ? builder(stage, index) : "";
+    }
+    
+    function toggleStage(index) {
+      stages[index].enabled = !stages[index].enabled;
+      renderStages();
+    }
+    
+    function updateStageText(index, value) {
+      stages[index].textPrompt = value;
+    }
+    
+    function toggleRequireAllFaces(index) {
+      stages[index].requireAllFaces = !stages[index].requireAllFaces;
+    }
+    
+    function resetStages() {
+      stages = createDefaultStages();
+      renderStages();
+    }
+    
+    function startImageSelection(mode, stageIndex) {
+      currentSelectionMode = { mode, stageIndex };
+      document.getElementById("selectionBanner").classList.add("active");
+      
+      const modeText = {
+        'instructive': 'a reference image',
+        'like': 'a positive example',
+        'notLike': 'a negative example',
+        'includeFace': 'a face to include',
+        'excludeFace': 'a face to exclude'
+      };
+      
+      document.getElementById("selectionText").textContent = 
+        `Click an image to select it as ${modeText[mode]}`;
+    }
+    
+    function cancelSelection() {
+      currentSelectionMode = null;
+      document.getElementById("selectionBanner").classList.remove("active");
+    }
+    
+    function selectImageFromGallery(imagePath) {
+      if (!currentSelectionMode) return;
+      
+      fetch(API + imagePath)
+        .then(res => res.blob())
+        .then(blob => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const dataUrl = e.target.result;
+            const { mode, stageIndex } = currentSelectionMode;
+            
+            if (mode === 'instructive') {
+              stages[stageIndex].referenceImage = dataUrl;
+            } else if (mode === 'like') {
+              stages[stageIndex].likeImages.push(dataUrl);
+            } else if (mode === 'notLike') {
+              stages[stageIndex].notLikeImages.push(dataUrl);
+            } else if (mode === 'includeFace') {
+              stages[stageIndex].includeFaces.push(dataUrl);
+            } else if (mode === 'excludeFace') {
+              stages[stageIndex].excludeFaces.push(dataUrl);
+            }
+            
+            renderStages();
+            cancelSelection();
+          };
+          reader.readAsDataURL(blob);
+        })
+        .catch(err => {
+          console.error('Error loading image:', err);
+          alert('Error loading image');
+        });
+    }
+    
+    function removeReferenceImage(index) {
+      stages[index].referenceImage = null;
+      renderStages();
+    }
+    
+    function removeLikeImage(stageIndex, imageIndex) {
+      stages[stageIndex].likeImages.splice(imageIndex, 1);
+      renderStages();
+    }
+    
+    function removeNotLikeImage(stageIndex, imageIndex) {
+      stages[stageIndex].notLikeImages.splice(imageIndex, 1);
+      renderStages();
+    }
+    
+    function removeIncludeFace(stageIndex, imageIndex) {
+      stages[stageIndex].includeFaces.splice(imageIndex, 1);
+      renderStages();
+    }
+    
+    function removeExcludeFace(stageIndex, imageIndex) {
+      stages[stageIndex].excludeFaces.splice(imageIndex, 1);
+      renderStages();
+    }
+    
+    async function performSearch() {
+      const enabledStages = stages.filter(s => s.enabled);
+      
+      if (enabledStages.length === 0) {
+        alert("Please enable at least one search stage");
+        return;
+      }
+      
+      if (isLoading) return;
+      
+      try {
+        setLoading(true);
+        
+        const requestBody = {
+          stages: enabledStages.map(stage => {
+            if (stage.type === 'instructive') {
+              return {
+                stage_type: 'instructive',
+                enabled: true,
+                text_prompt: stage.textPrompt || null,
+                reference_image_base64: stage.referenceImage || null
+              };
+            } else if (stage.type === 'examples') {
+              return {
+                stage_type: 'examples',
+                enabled: true,
+                like_images_base64: stage.likeImages.length > 0 ? stage.likeImages : null,
+                not_like_images_base64: stage.notLikeImages.length > 0 ? stage.notLikeImages : null
+              };
+            } else if (stage.type === 'faces') {
+              return {
+                stage_type: 'faces',
+                enabled: true,
+                include_faces_base64: stage.includeFaces.length > 0 ? stage.includeFaces : null,
+                exclude_faces_base64: stage.excludeFaces.length > 0 ? stage.excludeFaces : null,
+                require_all_faces: stage.requireAllFaces
+              };
+            }
+          }),
+          limit: 100,
+          face_match_threshold: 0.4
+        };
+        
+        const res = await fetch(`${API}/multi_stage_search`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody)
+        });
+        
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.detail || `HTTP error! status: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        
+        if (!data || data.length === 0) {
+          showEmptyState("No matching images found");
+          return;
+        }
+        
+        allLoadedImages = data;
+        renderImages(data);
+      } catch (error) {
+        console.error("Search error:", error);
+        showError(`Error: ${error.message}`);
+      } finally {
+        setLoading(false);
+      }
+    }
     
     async function loadAll() {
       if (isLoading) return;
+      
       try {
         setLoading(true);
         const res = await fetch(`${API}/all`);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data = await res.json();
+        
         if (!data || data.length === 0) {
-          gallery.innerHTML = `<div class="error">No images found. Please check if images are loaded in the database.</div>`;
+          showEmptyState("No images found in database");
           return;
         }
+        
+        allLoadedImages = data;
         renderImages(data);
       } catch (error) {
-        console.error('Loading error:', error);
-        gallery.innerHTML = `<div class="error">Error loading images. Please check if the API server is running on port 8000.</div>`;
+        console.error("Loading error:", error);
+        showError("Error loading images. Please check if the API server is running.");
       } finally {
         setLoading(false);
       }
     }
-
-    async function search(query) {
-      if (isLoading) return;
-      try {
-        setLoading(true);
-        const res = await fetch(`${API}/search`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: query })
-        });
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-        renderImages(data);
-      } catch (error) {
-        console.error('Search error:', error);
-        gallery.innerHTML = `<div class="error">Error performing search. Please try again.</div>`;
-      } finally {
-        setLoading(false);
-      }
-    }
-
+    
     function renderImages(images) {
       gallery.innerHTML = "";
       
-      // Create and observe intersection observer for lazy loading
       const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
             const img = entry.target;
             img.src = img.dataset.src;
-            img.classList.add('loaded');
+            img.classList.add("loaded");
             observer.unobserve(img);
           }
         });
       }, {
-        rootMargin: '50px 0px',
-        threshold: 0.1
+        rootMargin: "100px 0px",
+        threshold: 0.01
       });
-
+      
       images.forEach(img => {
-        const container = document.createElement('div');
-        container.className = 'image-container';
-
-        const imgEl = document.createElement('img');
-        imgEl.dataset.src = API + img.path; // Use data-src for lazy loading
-        imgEl.alt = img.filename || 'Image'; // Use filename as alt text if available
+        const container = document.createElement("div");
+        container.className = "image-container";
+        container.dataset.path = img.path;
         
-        // Add error handling for images
-        imgEl.onerror = () => {
-          imgEl.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23eee"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" fill="%23999">Error</text></svg>';
-          imgEl.style.backgroundColor = '#eee';
+        container.onclick = () => {
+          if (currentSelectionMode) {
+            selectImageFromGallery(img.path);
+          }
         };
         
-        // Add similarity score if available
+        const imgEl = document.createElement("img");
+        imgEl.dataset.src = API + img.path;
+        imgEl.alt = img.filename || "Image";
+        
+        imgEl.onerror = () => {
+          container.style.display = "none";
+        };
+        
         if (img.score !== undefined) {
-          const score = document.createElement('div');
-          score.className = 'similarity-score';
-          score.textContent = `${(img.score * 100).toFixed(1)}%`;
+          const score = document.createElement("div");
+          score.className = "similarity-score";
+          score.textContent = `${(img.score * 100).toFixed(0)}%`;
           container.appendChild(score);
         }
-
-        // Add filename if available
+        
+        container.appendChild(imgEl);
+        
         if (img.filename) {
-          const filename = document.createElement('div');
-          filename.className = 'image-filename';
+          const filename = document.createElement("div");
+          filename.className = "image-filename";
           filename.textContent = img.filename;
           container.appendChild(filename);
         }
-
-        container.appendChild(imgEl);
+        
         gallery.appendChild(container);
         observer.observe(imgEl);
       });
     }
-
-    input.addEventListener("keypress", e => {
-      if (e.key === "Enter") search(input.value);
-    });
-
-    // Add loading state
-    function setLoading(isLoading) {
-      if (isLoading) {
-        const loading = document.createElement('div');
-        loading.className = 'loading';
-        loading.textContent = 'Loading images...';
-        gallery.appendChild(loading);
-      } else {
-        const loading = gallery.querySelector('.loading');
-        if (loading) loading.remove();
+    
+    function setLoading(loading) {
+      isLoading = loading;
+      if (loading) {
+        gallery.innerHTML = `
+          <div class="loading">
+            <div class="spinner"></div>
+            <div>Loading images...</div>
+          </div>
+        `;
       }
     }
-
-    // Start with all images
+    
+    function showError(message) {
+      gallery.innerHTML = `<div class="error">${message}</div>`;
+    }
+    
+    function showEmptyState(message) {
+      gallery.innerHTML = `
+        <div class="empty-state">
+          <div style="font-size:18px; color:#666;">${message}</div>
+        </div>
+      `;
+    }
+    
+    async function showStats() {
+      try {
+        const res = await fetch(`${API}/stats`);
+        const stats = await res.json();
+        
+        const message = `📊 Database Statistics\n\n` +
+          `Total Images: ${stats.total_images}\n` +
+          `Images Tracked: ${stats.loaded_images_tracked}\n` +
+          `Vector Size: ${stats.vector_size}\n` +
+          `Face Recognition: ${stats.face_recognition_enabled ? '✅ Enabled' : '❌ Disabled'}\n` +
+          `Face Model: ${stats.face_model || 'N/A'}\n` +
+          (stats.face_recognition_enabled ? 
+            `Images with Faces: ${stats.images_with_faces}\n` +
+            `Total Faces Detected: ${stats.total_faces_detected}` : '');
+        
+        alert(message);
+      } catch (error) {
+        alert('Error fetching stats');
+      }
+    }
+    
+    // Initialize
+    renderStages();
     loadAll();
   </script>
-
 </body>
 </html>
