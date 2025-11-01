@@ -41,7 +41,7 @@ A portfolio-ready project that lets you explore large image libraries the way yo
 - **Face Recognition (optional):** DeepFace with the `Facenet512` embedding model plus multi-backend detectors (`retinaface`, `mtcnn`, `opencv`, `ssd`).
 - **Frontend:** Vanilla JS/CSS/HTML with IntersectionObserver for smooth, lazy gallery loading.
 
-## Use Cases to Highlight (LinkedIn ready)
+## Use Cases to Highlight 
 - Build an *“AI photo librarian”* that understands creative briefs and subjective style.
 - Create a *brand safety guardrail* that spots disallowed imagery or people before publishing.
 - Support *investigative review* workflows that need both concept and face matching in one query.
